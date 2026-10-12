@@ -24,6 +24,16 @@ On Ctrl+C, SIGTERM (Linux), Ctrl+Break (Windows), or runtime expiry, the main th
 
 An exception in either worker is captured for main to report as a nonzero exit. A processing failure also closes the queue and requests stop. CSV stream errors are enabled instead of silently discarding failed writes. Existing readable capture files are refused; the initial existence check is intended for ordinary single-process demos, not adversarial concurrent writers to the same path.
 
+## Qt dashboard
+
+The optional Qt Widgets executable embeds the server library. A `QThread` owns the blocking server lifecycle; the backend still uses its original receiving and processing threads. A shared `ServerObserver` exposes an atomic stop request and callbacks for listening port, logged readings and status snapshots.
+
+Callbacks never touch widgets. They write to a mutex-protected dashboard cache. The GUI's 100 ms timer copies a bounded snapshot and updates labels/table cells on the GUI thread. Latest values replace earlier values for a device, rather than enqueueing an unbounded GUI event for every reading. The cache is capped at 128 device IDs; the CSV still records every successfully processed reading.
+
+Start creates a fresh worker and capture. Stop sets the atomic request and leaves the UI event loop running while the backend drains. Close requests the same stop and defers the actual close until the thread finishes. Errors return through Qt signals and restore editable controls. The built-in demo uses asynchronous `QTcpSocket` writes from a GUI timer; it transmits synthetic data through the actual TCP server.
+
+GUI tests exercise both behavior and a timer heartbeat during data ingestion. References: [Qt thread ownership](https://doc.qt.io/qt-6/threads-qobject.html), [Qt Widgets](https://doc.qt.io/qt-6/qtwidgets-index.html) and [QTcpSocket](https://doc.qt.io/qt-6/qtcpsocket.html).
+
 ## Tradeoffs and limits
 
 - Per-record flushing favors a readable live demo over throughput. No throughput numbers are claimed.

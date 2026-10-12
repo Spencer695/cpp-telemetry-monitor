@@ -28,9 +28,17 @@ Explain why closing the queue before the receiver finishes would reject readings
 
 ## 5. Make a measurable improvement
 
-Choose one: add duplicate-sequence detection, record queue residence time with a monotonic clock, or build a Qt dashboard. Write a test for the behavior before changing the code. Record actual observations and limitations in your README.
+Choose one: add duplicate-sequence detection, record queue residence time with a monotonic clock, or add a device filter to the Qt dashboard. Write a test for the behavior before changing the code. Record actual observations and limitations in your README.
 
 Keep the Python input described as simulated until a real hardware connection is implemented and tested. Keep your team's Thumby work separate unless the team agrees on an integration.
+
+## 6. Trace the Qt interface
+
+Build with `TELEMETRY_BUILD_GUI=ON`, start a monitor, and click **Send demo readings**. Follow how a reading passes through a real socket, the backend processing thread, the mutex-protected cache and the GUI refresh timer.
+
+Explain why callbacks do not modify widgets, why the Qt worker's blocking server loop uses an atomic stop request, and how the GUI stays responsive while accepted work drains. Review the test that limits the display to 128 devices while all 160 readings are captured.
+
+Exercise: add a device-name filter without altering network ingestion or CSV capture, and write a Qt test for it.
 
 ## Interview prompts
 

@@ -19,6 +19,7 @@
 #include <csignal>
 #include <exception>
 #include <fstream>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -85,8 +86,13 @@ void print_status(const Counters& c, const BoundedQueue<Reading>& queue, const c
               << " truncated=" << c.truncated.load() << " rejected=" << c.rejected.load()
               << " idle=" << c.idle.load() << " queue_high_water=" << queue.high_water() << std::endl;
 }
+Status snapshot(const Counters& c, const BoundedQueue<Reading>& queue) {
+    return Status{c.accepted.load(), c.rejected.load(), c.processed.load(), c.malformed.load(),
+                  c.dropped.load(), c.oversized.load(), c.truncated.load(), c.idle.load(),
+                  c.connected.load(), queue.high_water()};
 }
-int run_server(const Config& config) {
+}
+int run_server(const Config& config, ServerObserver* observer) {
     SocketRuntime runtime;
     (void)runtime;
     OwnedSocket listener(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
@@ -108,14 +114,15 @@ int run_server(const Config& config) {
     if (getsockname(listener.get(), reinterpret_cast<sockaddr*>(&address), &length) != 0)
         throw std::runtime_error("getsockname failed");
     // Refuse to overwrite an existing capture so repeated demos do not erase data.
-    { std::ifstream existing(config.log_path); if (existing.good()) throw std::runtime_error("Log already exists; choose a new --log path"); }
-    std::ofstream log(config.log_path);
+    const auto capture_path = std::filesystem::u8path(config.log_path);
+    { std::ifstream existing(capture_path); if (existing.good()) throw std::runtime_error("Log already exists; choose a new --log path"); }
+    std::ofstream log(capture_path);
     log.exceptions(std::ios::badbit | std::ios::failbit);
     log << "received_ms,device,sequence,value\n" << std::flush;
     BoundedQueue<Reading> queue(config.queue_capacity);
     Counters counters;
     std::atomic<bool> stop{false};
-    std::exception_ptr io_error, processing_error;
+    std::exception_ptr io_error, processing_error, main_error;
     signal_received = 0;
     const auto previous_int = std::signal(SIGINT, on_signal);
     const auto previous_term = std::signal(SIGTERM, on_signal);
@@ -131,6 +138,7 @@ int run_server(const Config& config) {
                 log << reading->received_ms << ',' << reading->device << ',' << reading->sequence << ','
                     << std::setprecision(17) << reading->value << '\n' << std::flush;
                 ++counters.processed;
+                if (observer && observer->reading) observer->reading(*reading);
             }
         } catch (...) { processing_error = std::current_exception(); stop = true; queue.close(); }
     });
@@ -212,17 +220,25 @@ int run_server(const Config& config) {
             } catch (...) { io_error = std::current_exception(); stop = true; }
         });
     } catch (...) { queue.close(); processor.join(); throw; }
-    std::cout << "LISTENING 127.0.0.1:" << ntohs(address.sin_port) << std::endl;
-    auto last_status = std::chrono::steady_clock::now();
-    const auto started_at = last_status;
-    while (!stop.load() && signal_received == 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        if (config.run_for_ms != 0 && std::chrono::steady_clock::now() - started_at >= std::chrono::milliseconds(config.run_for_ms)) break;
-        if (std::chrono::steady_clock::now() - last_status >= std::chrono::seconds(1)) {
-            print_status(counters, queue, "STATUS");
-            last_status = std::chrono::steady_clock::now();
+    try {
+        std::cout << "LISTENING 127.0.0.1:" << ntohs(address.sin_port) << std::endl;
+        if (observer && observer->listening) observer->listening(ntohs(address.sin_port));
+        auto last_status = std::chrono::steady_clock::now();
+        auto last_observer = last_status;
+        const auto started_at = last_status;
+        while (!stop.load() && signal_received == 0 && !(observer && observer->stop_requested.load())) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            if (config.run_for_ms != 0 && std::chrono::steady_clock::now() - started_at >= std::chrono::milliseconds(config.run_for_ms)) break;
+            if (std::chrono::steady_clock::now() - last_observer >= std::chrono::milliseconds(200)) {
+                if (observer && observer->status) observer->status(snapshot(counters, queue));
+                last_observer = std::chrono::steady_clock::now();
+            }
+            if (std::chrono::steady_clock::now() - last_status >= std::chrono::seconds(1)) {
+                print_status(counters, queue, "STATUS");
+                last_status = std::chrono::steady_clock::now();
+            }
         }
-    }
+    } catch (...) { main_error = std::current_exception(); }
     stop = true;
     receiver.join();
     queue.close(); // Let processing drain the accepted queue, then wake and exit.
@@ -233,6 +249,8 @@ int run_server(const Config& config) {
     std::signal(SIGBREAK, previous_break);
 #endif
     print_status(counters, queue, "FINAL");
+    if (observer && observer->status) observer->status(snapshot(counters, queue));
+    if (main_error) std::rethrow_exception(main_error);
     if (io_error) std::rethrow_exception(io_error);
     if (processing_error) std::rethrow_exception(processing_error);
     return 0;

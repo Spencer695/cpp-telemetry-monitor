@@ -16,6 +16,7 @@ This learning and portfolio project was created with AI assistance. It demonstra
 - CSV capture with server receive timestamps; existing log files are preserved.
 - Graceful signal or timed shutdown: stop receiving, close clients, then drain the queue.
 - CMake builds, core tests, socket integration tests and Linux sanitizer configurations.
+- Optional Qt 6 Widgets dashboard with live readings, counters, start/stop controls and a built-in simulated-data demo.
 
 ## Architecture
 
@@ -78,6 +79,32 @@ python client/simulator.py --count 30 --fragment
 
 Run the simulator in a separate terminal. Windows integration tests use timed shutdown because some CI subprocesses have no console; Linux tests exercise SIGTERM shutdown.
 
+## Qt dashboard
+
+![Qt dashboard displaying actual simulated readings](docs/qt-dashboard.png)
+
+The dashboard uses the same C++ server as the terminal application. It displays the latest value, sequence and receive time for each device, plus connected/processed/dropped/invalid counters. **Start monitor** starts a capture; **Stop and drain** finishes accepted queued readings. **Send demo readings** sends 30 synthetic readings through a real TCP connection.
+
+On Ubuntu, install Qt with `sudo apt install qt6-base-dev`, then:
+
+```bash
+cmake -S . -B build-qt -DCMAKE_BUILD_TYPE=Debug -DTELEMETRY_BUILD_GUI=ON
+cmake --build build-qt --parallel
+ctest --test-dir build-qt --output-on-failure
+./build-qt/telemetry_gui
+```
+
+Qt 6.2+ Widgets and Network are required. Tests also use Qt Test. For Windows, supply your matching MSVC Qt SDK location:
+
+```powershell
+cmake -S . -B build-qt -G "Visual Studio 17 2022" -A x64 -DTELEMETRY_BUILD_GUI=ON -DCMAKE_PREFIX_PATH="C:/Qt/6.8.3/msvc2022_64"
+cmake --build build-qt --config Release
+```
+
+Adjust the SDK path to your installation. Use Qt's `windeployqt` on the built `telemetry_gui.exe` before running it outside your Qt environment. The dashboard is optional: the normal CLI build has no Qt dependency.
+
+All widgets are accessed on the GUI thread. A `QThread` runs the server lifecycle, its receiving/processing threads update mutex-protected snapshots, and a GUI timer refreshes the display. The table stores at most 128 device entries; all valid processed readings still go to the CSV. Closing an active window requests a drain and closes after the backend finishes. GUI tests verify real TCP updates, responsive timers, the built-in demo, restart, startup failures, bounded display and close/drain behavior.
+
 ## Wire protocol
 
 Each ASCII message ends in a newline:
@@ -115,7 +142,6 @@ AddressSanitizer and UndefinedBehaviorSanitizer run together. ThreadSanitizer ru
 
 ## Scope and next steps
 
-The server binds to **127.0.0.1 only**. This is a local demonstration with no authentication, TLS, acknowledgements, retransmission, guaranteed delivery, dashboard or physical hardware adapter. A successful client send does not prove a reading was logged; verify the CSV and server counters. CSV output is flushed per reading, but is not a crash-proof durable database.
+The server binds to **127.0.0.1 only**. This is a local demonstration with no authentication, TLS, acknowledgements, retransmission, guaranteed delivery or physical hardware adapter. A successful client send does not prove a reading was logged; verify the CSV and server counters. CSV output is flushed per reading, but is not a crash-proof durable database.
 
-Possible extensions: measure latency/throughput, add a Qt dashboard, and implement a documented adapter for actual hardware once its interface is verified. The separate Thumby Color team project remains in progress.
-
+Possible extensions: measure latency/throughput, add dashboard filtering and implement a documented adapter for actual hardware once its interface is verified. The separate Thumby Color team project remains in progress.
