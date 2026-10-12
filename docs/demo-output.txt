@@ -1,0 +1,17 @@
+Actual Windows/MSVC demo captured October 12, 2026. Data is simulated.
+
+Python client: --count 20 --interval 0.01 --fragment
+Sent 20 simulated readings from simulated-sensor. Check the server log for accepted records.
+
+Server output:
+LISTENING 127.0.0.1:61095
+STATUS connected=0 accepted=1 processed=20 malformed=0 dropped=0 oversized=0 truncated=0 rejected=0 idle=0 queue_high_water=1
+STATUS connected=0 accepted=1 processed=20 malformed=0 dropped=0 oversized=0 truncated=0 rejected=0 idle=0 queue_high_water=1
+FINAL connected=0 accepted=1 processed=20 malformed=0 dropped=0 oversized=0 truncated=0 rejected=0 idle=0 queue_high_water=1
+
+First three captured records (server receive timestamps omitted here):
+device,sequence,value
+simulated-sensor,0,20
+simulated-sensor,1,20.992999999999999
+simulated-sensor,2,21.946999999999999
+

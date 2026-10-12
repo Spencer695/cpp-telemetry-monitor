@@ -62,6 +62,8 @@ The server prints its listening address, then status counters each second. Press
 
 For an unattended run, add `--run-for-ms 5000` to stop after five seconds. `--port 0` selects an available port and prints it. To demonstrate overload, use `--queue-capacity 2 --processing-delay-ms 20` and send a large burst with `--interval 0`.
 
+See [an actual captured demo](docs/demo-output.txt): 20 simulated readings sent with fragmented messages, logged successfully with no drops. The captured run used Windows/MSVC; Linux is verified separately by CI.
+
 ## Windows
 
 Use a Visual Studio 2022 Developer PowerShell with the C++ build tools installed:
@@ -116,3 +118,4 @@ AddressSanitizer and UndefinedBehaviorSanitizer run together. ThreadSanitizer ru
 The server binds to **127.0.0.1 only**. This is a local demonstration with no authentication, TLS, acknowledgements, retransmission, guaranteed delivery, dashboard or physical hardware adapter. A successful client send does not prove a reading was logged; verify the CSV and server counters. CSV output is flushed per reading, but is not a crash-proof durable database.
 
 Possible extensions: measure latency/throughput, add a Qt dashboard, and implement a documented adapter for actual hardware once its interface is verified. The separate Thumby Color team project remains in progress.
+
