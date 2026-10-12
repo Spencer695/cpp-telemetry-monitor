@@ -35,7 +35,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install Qt development libraries
-        run: sudo apt-get update && sudo apt-get install -y qt6-base-dev
+        run: sudo apt-get update && sudo apt-get install -y qt6-base-dev libgl1-mesa-dev
       - name: Configure dashboard and tests
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DTELEMETRY_BUILD_GUI=ON
       - name: Build
@@ -51,3 +51,4 @@ jobs:
           name: qt-dashboard-preview
           path: qt-dashboard.png
           if-no-files-found: error
+

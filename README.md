@@ -85,7 +85,7 @@ Run the simulator in a separate terminal. Windows integration tests use timed sh
 
 The dashboard uses the same C++ server as the terminal application. It displays the latest value, sequence and receive time for each device, plus connected/processed/dropped/invalid counters. **Start monitor** starts a capture; **Stop and drain** finishes accepted queued readings. **Send demo readings** sends 30 synthetic readings through a real TCP connection.
 
-On Ubuntu, install Qt with `sudo apt install qt6-base-dev`, then:
+On Ubuntu, install Qt with `sudo apt install qt6-base-dev libgl1-mesa-dev`, then:
 
 ```bash
 cmake -S . -B build-qt -DCMAKE_BUILD_TYPE=Debug -DTELEMETRY_BUILD_GUI=ON
@@ -145,3 +145,4 @@ AddressSanitizer and UndefinedBehaviorSanitizer run together. ThreadSanitizer ru
 The server binds to **127.0.0.1 only**. This is a local demonstration with no authentication, TLS, acknowledgements, retransmission, guaranteed delivery or physical hardware adapter. A successful client send does not prove a reading was logged; verify the CSV and server counters. CSV output is flushed per reading, but is not a crash-proof durable database.
 
 Possible extensions: measure latency/throughput, add dashboard filtering and implement a documented adapter for actual hardware once its interface is verified. The separate Thumby Color team project remains in progress.
+
