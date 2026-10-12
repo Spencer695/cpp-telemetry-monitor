@@ -1,0 +1,9 @@
+/build*/
+*.csv
+__pycache__/
+*.pyc
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.log
