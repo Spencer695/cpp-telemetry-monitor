@@ -35,6 +35,14 @@ flowchart LR
 
 The receiver owns every socket and client buffer. The processor owns the log stream. The queue protects its state with a mutex; a condition variable wakes the processor when a reading arrives or the queue closes. Counters use atomics. See [design decisions](docs/DESIGN.md) and the [learning walkthrough](docs/WALKTHROUGH.md).
 
+## Data flow
+
+![Telemetry data flow: simulated sensors over TCP, receiver, bounded queue, processor, CSV capture and Qt dashboard](docs/data-flow.drawio.svg)
+
+[Open the full-size diagram](docs/data-flow.drawio.svg) · [Edit the draw.io source](docs/data-flow.drawio) · [Walk through the design](docs/DATA_FLOW.md)
+
+Simulated sensors send newline-delimited readings over loopback TCP. The receiver frames and validates each message, adds a receive timestamp, then attempts to enqueue it. A bounded, mutex-protected FIFO transfers readings to the processing thread; a full queue drops the newest reading and increments a counter. The processor writes and flushes each CSV row before calling the reading observer. That callback updates mutex-protected dashboard state. Every 100 ms, the Qt GUI copies a snapshot and refreshes the widgets on its own thread. Status snapshots arrive separately from the server lifecycle about every 200 ms. On a normal stop, receiving ends before the queue closes and the processor drains it.
+
 ## Build and test on Linux
 
 Requirements: GCC 11+ or a recent Clang with C++17 floating-point `from_chars`, CMake 3.16+, and Python 3.9+. No pip packages or downloaded C++ libraries are needed.
